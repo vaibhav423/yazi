@@ -22,23 +22,33 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install cross toolchain
+      - name: Install prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -yq gcc-aarch64-linux-gnu zip
+          sudo apt-get install -yq curl unzip zip
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-gnu
+      - name: Install Android NDK
+        run: |
+          # choose a reasonably recent stable NDK release
+          NDK_NAME=android-ndk-r25b
+          NDK_ZIP=${NDK_NAME}-linux.zip
+          curl -fsSL "https://dl.google.com/android/repository/${NDK_ZIP}" -o ndk.zip
+          unzip -q ndk.zip
+          echo "ANDROID_NDK_HOME=$PWD/${NDK_NAME}" >> $GITHUB_ENV
 
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
 
-      - name: Build (aarch64)
-        run: ./scripts/build.sh aarch64-unknown-linux-gnu
+      - name: Install cargo-ndk
+        run: |
+          cargo install cargo-ndk || true
+
+      - name: Build Android (aarch64)
+        run: ./scripts/build-android.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: aarch64
-          path: yazi-aarch64-unknown-linux-gnu.*
+          name: aarch64-android
+          path: yazi-aarch64-linux-android.zip
