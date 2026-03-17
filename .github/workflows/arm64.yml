@@ -35,6 +35,7 @@ jobs:
           curl -fsSL "https://dl.google.com/android/repository/${NDK_ZIP}" -o ndk.zip
           unzip -q ndk.zip
           echo "ANDROID_NDK_HOME=$PWD/${NDK_NAME}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$PWD/${NDK_NAME}" >> $GITHUB_ENV
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -43,12 +44,30 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
 
-      - name: Install cargo-ndk
-        # ensure we don't try to use sccache before it's available
+      - name: Install Rust components and target
+        run: |
+          rustup component add rust-src || true
+          rustup target add aarch64-linux-android || true
+
+      - name: Install cargo-ndk (standalone)
         env:
           RUSTC_WRAPPER: ''
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo install cargo-ndk || true
+          echo "== cargo-ndk version(s) =="
+          cargo-ndk --version || true
+          cargo ndk --version || true
+
+      - name: Diagnostics
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "rustc: $(rustc --version)"
+          echo "cargo: $(cargo --version)"
+          echo "cargo-ndk (standalone):"; cargo-ndk --version || true
+          echo "installed rustup targets:"; rustup target list --installed || true
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
 
       - name: Verify and make build script executable
         run: |
@@ -56,7 +75,9 @@ jobs:
           chmod +x ./scripts/build-android.sh
 
       - name: Build Android (aarch64)
-        run: ./scripts/build-android.sh
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          ./scripts/build-android.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

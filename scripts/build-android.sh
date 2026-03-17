@@ -18,7 +18,15 @@ fi
 export YAZI_GEN_COMPLETIONS=1
 
 echo "Building aarch64-linux-android (release)"
-cargo ndk -t aarch64-linux-android --release --bins
+# Ensure Rust target is installed
+rustup target add aarch64-linux-android || true
+
+# Prefer the standalone cargo-ndk binary if present
+if command -v cargo-ndk &> /dev/null; then
+  cargo-ndk -t aarch64-linux-android --release --bins
+else
+  cargo ndk -t aarch64-linux-android --release --bins
+fi
 
 # Ensure output exists
 OUT_DIR="target/aarch64-linux-android/release"
