@@ -20,12 +20,28 @@ export YAZI_GEN_COMPLETIONS=1
 echo "Building aarch64-linux-android (release)"
 # Ensure Rust target is installed
 rustup target add aarch64-linux-android || true
-
-# Prefer the standalone cargo-ndk binary if present
-if command -v cargo-ndk &> /dev/null; then
-  cargo-ndk -t aarch64-linux-android --release --bins
+# Ensure cargo subcommand is used (avoid calling the standalone binary directly)
+export PATH="$HOME/.cargo/bin:$PATH"
+export RUSTC_WRAPPER=""
+echo "Attempting: cargo ndk -t aarch64-linux-android --release --bins"
+if cargo ndk -t aarch64-linux-android --release --bins; then
+  echo "cargo ndk succeeded"
 else
-  cargo ndk -t aarch64-linux-android --release --bins
+  echo "cargo ndk failed; falling back to direct cargo build using NDK clang"
+  TOOLCHAIN_DIR="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+  CLANG="$TOOLCHAIN_DIR/aarch64-linux-android21-clang"
+  AR="$TOOLCHAIN_DIR/llvm-ar"
+  if [[ ! -x "$CLANG" ]]; then
+    echo "Expected clang at $CLANG not found or not executable"
+    ls -la "$TOOLCHAIN_DIR" || true
+    exit 1
+  fi
+
+  export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CLANG"
+  export CC="$CLANG"
+  export AR="$AR"
+
+  cargo build --release --target aarch64-linux-android
 fi
 
 # Ensure output exists
