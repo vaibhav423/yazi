@@ -36,13 +36,24 @@ jobs:
           unzip -q ndk.zip
           echo "ANDROID_NDK_HOME=$PWD/${NDK_NAME}" >> $GITHUB_ENV
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - name: Install Rust toolchain
         run: |
           rustup toolchain install stable --profile minimal
 
       - name: Install cargo-ndk
+        # ensure we don't try to use sccache before it's available
+        env:
+          RUSTC_WRAPPER: ''
         run: |
           cargo install cargo-ndk || true
+
+      - name: Verify and make build script executable
+        run: |
+          ls -la ./scripts/build-android.sh || true
+          chmod +x ./scripts/build-android.sh
 
       - name: Build Android (aarch64)
         run: ./scripts/build-android.sh
