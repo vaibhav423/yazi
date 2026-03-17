@@ -17,70 +17,28 @@ jobs:
   build-aarch64:
     name: Build aarch64 (cross)
     runs-on: ubuntu-latest
-    env:
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+    container:
+      image: docker://ghcr.io/cross-rs/aarch64-unknown-linux-musl:edge
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -yq curl unzip zip
-
-      - name: Install Android NDK
-        run: |
-          # choose a reasonably recent stable NDK release
-          NDK_NAME=android-ndk-r25b
-          NDK_ZIP=${NDK_NAME}-linux.zip
-          curl -fsSL "https://dl.google.com/android/repository/${NDK_ZIP}" -o ndk.zip
-          unzip -q ndk.zip
-          echo "ANDROID_NDK_HOME=$PWD/${NDK_NAME}" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$PWD/${NDK_NAME}" >> $GITHUB_ENV
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-musl
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
 
-      - name: Install Rust toolchain
+      - name: Build (musl aarch64)
         run: |
-          rustup toolchain install stable --profile minimal
-
-      - name: Install Rust components and target
-        run: |
-          rustup component add rust-src || true
-          rustup target add aarch64-linux-android || true
-
-      - name: Install cargo-ndk (standalone)
-        env:
-          RUSTC_WRAPPER: ''
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo install cargo-ndk || true
-          echo "== cargo-ndk version(s) =="
-          cargo-ndk --version || true
-          cargo ndk --version || true
-
-      - name: Diagnostics
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          echo "rustc: $(rustc --version)"
-          echo "cargo: $(cargo --version)"
-          echo "cargo-ndk (standalone):"; cargo-ndk --version || true
-          echo "installed rustup targets:"; rustup target list --installed || true
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
-
-      - name: Verify and make build script executable
-        run: |
-          ls -la ./scripts/build-android.sh || true
-          chmod +x ./scripts/build-android.sh
-
-      - name: Build Android (aarch64)
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          ./scripts/build-android.sh
+          chmod +x ./scripts/build.sh
+          ./scripts/build.sh aarch64-unknown-linux-musl
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: aarch64-android
-          path: yazi-aarch64-linux-android.zip
+          name: aarch64-musl
+          path: |
+            yazi-aarch64-unknown-linux-musl.zip
+            yazi-aarch64-unknown-linux-musl.deb
